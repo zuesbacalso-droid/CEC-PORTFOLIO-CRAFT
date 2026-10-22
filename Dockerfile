@@ -24,6 +24,7 @@ COPY --from=assets /app/public/build ./public/build
 COPY docker/railway-start /usr/local/bin/railway-start
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress \
+    && mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions storage/logs \
     && a2enmod rewrite headers \
     && sed -ri 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/*.conf \
     && printf '<Directory /var/www/html/public>\n    AllowOverride All\n    Require all granted\n</Directory>\n' >> /etc/apache2/apache2.conf \
