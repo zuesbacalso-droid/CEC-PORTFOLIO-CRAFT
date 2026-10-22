@@ -33,5 +33,5 @@ databases:
   - name: cec-portfolio-db
     databaseName: portfolio_craft
     user: portfolio_user
-    plan: free
+    plan: 0.1c-256mb
     region: oregon
