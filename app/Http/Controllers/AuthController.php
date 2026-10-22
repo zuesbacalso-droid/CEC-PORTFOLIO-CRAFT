@@ -3,15 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\GmailVerificationMailer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Throwable;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly GmailVerificationMailer $gmailMailer)
+    {
+    }
+
     public function showLogin()
     {
         return view('auth');
@@ -53,8 +57,8 @@ class AuthController extends Controller
             'email.regex' => 'Please use a working Gmail address ending in @gmail.com.',
         ]);
 
-        if (!$this->smtpIsConfigured()) {
-            return back()->withErrors(['email' => 'Gmail verification is not configured yet. Set MAIL_MAILER=smtp and your Gmail App Password in .env, then run php artisan config:clear.'])->withInput($request->except(['password', 'password_confirmation']));
+        if (!$this->gmailMailer->isConfigured()) {
+            return back()->withErrors(['email' => 'Gmail verification is not configured yet. Set GMAIL_RELAY_URL and GMAIL_RELAY_TOKEN in Render environment settings.'])->withInput($request->except(['password', 'password_confirmation']));
         }
 
         $key = 'register-code:' . sha1(strtolower($data['email'])) . ':' . $request->ip();
@@ -74,17 +78,16 @@ class AuthController extends Controller
         cache()->put('cec-registration-code:' . $user->id, Hash::make($code), now()->addMinutes(10));
 
         try {
-            Mail::raw(
+            $this->gmailMailer->send(
+                $user->email,
+                'Verify your CEC Portfolio Craft account',
                 "Welcome to CEC Portfolio Craft!\n\nYour email verification code is: {$code}\n\nThis code expires in 10 minutes. If you did not create this account, you can ignore this email.",
-                function ($message) use ($user) {
-                    $message->to($user->email, $user->name)->subject('Verify your CEC Portfolio Craft account');
-                }
             );
         } catch (Throwable $exception) {
             report($exception);
             cache()->forget('cec-registration-code:' . $user->id);
             $user->delete();
-            return back()->withErrors(['email' => 'We could not send the verification email. Check your Gmail SMTP settings in .env, then try again.'])->withInput($request->except(['password', 'password_confirmation']));
+            return back()->withErrors(['email' => 'We could not send the verification email. Check the Gmail relay settings, then try again.'])->withInput($request->except(['password', 'password_confirmation']));
         }
 
         return redirect()->route('login')
@@ -141,8 +144,8 @@ class AuthController extends Controller
             return redirect()->route('login')->with('status', 'If the account needs verification, a new code has been sent.');
         }
 
-        if (!$this->smtpIsConfigured()) {
-            return back()->withErrors(['email' => 'Gmail verification is not configured yet. Set MAIL_MAILER=smtp and your Gmail App Password in .env, then run php artisan config:clear.'])
+        if (!$this->gmailMailer->isConfigured()) {
+            return back()->withErrors(['email' => 'Gmail verification is not configured yet. Set GMAIL_RELAY_URL and GMAIL_RELAY_TOKEN in Render environment settings.'])
                 ->with('registration_code_sent', true)->with('verification_email', $email);
         }
 
@@ -156,30 +159,19 @@ class AuthController extends Controller
         $code = (string) random_int(100000, 999999);
         cache()->put('cec-registration-code:' . $user->id, Hash::make($code), now()->addMinutes(10));
         try {
-            Mail::raw("Your CEC Portfolio Craft email verification code is: {$code}\n\nThis code expires in 10 minutes.", function ($message) use ($user) {
-                $message->to($user->email, $user->name)->subject('Your CEC Portfolio Craft verification code');
-            });
+            $this->gmailMailer->send(
+                $user->email,
+                'Your CEC Portfolio Craft verification code',
+                "Your CEC Portfolio Craft email verification code is: {$code}\n\nThis code expires in 10 minutes.",
+            );
         } catch (Throwable $exception) {
             report($exception);
-            return back()->withErrors(['email' => 'Email delivery failed. Check your Gmail SMTP settings.'])
+            return back()->withErrors(['email' => 'Email delivery failed. Check the Gmail relay settings.'])
                 ->with('registration_code_sent', true)->with('verification_email', $email);
         }
 
         return redirect()->route('login')->with('registration_code_sent', true)
             ->with('verification_email', $email)->with('status', 'A new verification code has been sent.');
-    }
-
-    private function smtpIsConfigured(): bool
-    {
-        $username = (string) config('mail.mailers.smtp.username', '');
-        $password = (string) config('mail.mailers.smtp.password', '');
-
-        return config('mail.default') === 'smtp'
-            && config('mail.mailers.smtp.host') === 'smtp.gmail.com'
-            && $username !== ''
-            && !str_contains($username, 'your-gmail')
-            && $password !== ''
-            && !str_contains($password, 'your-google-app-password');
     }
 
     public function logout(Request $request)

@@ -22,6 +22,11 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    'gmail' => [
+        'relay_url' => env('GMAIL_RELAY_URL'),
+        'relay_token' => env('GMAIL_RELAY_TOKEN'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
