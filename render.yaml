@@ -3,7 +3,7 @@ services:
     name: cec-portfolio-craft-app
     runtime: docker
     plan: free
-    region: oregon
+    region: virginia
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /up
@@ -16,9 +16,11 @@ services:
         generateValue: true
       - key: DB_CONNECTION
         value: pgsql
+      - key: DB_SCHEMA
+        value: portfolio_craft
       - key: DB_URL
         fromDatabase:
-          name: cec-portfolio-db
+          name: cec-task-flow-db
           property: connectionString
       - key: SESSION_DRIVER
         value: database
@@ -29,9 +31,3 @@ services:
       - key: LOG_CHANNEL
         value: stderr
 
-databases:
-  - name: cec-portfolio-db
-    databaseName: portfolio_craft
-    user: portfolio_user
-    plan: 0.1c-256mb
-    region: oregon

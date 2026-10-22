@@ -12,6 +12,10 @@ esac
 sed -ri "s/^Listen 80$/Listen ${port}/" /etc/apache2/ports.conf
 sed -ri "s/<VirtualHost \*:80>/<VirtualHost *:${port}>/" /etc/apache2/sites-available/000-default.conf
 
+if [ "${DB_CONNECTION:-sqlite}" = "pgsql" ] && [ -n "${DB_SCHEMA:-}" ] && [ "$DB_SCHEMA" != "public" ]; then
+    php artisan tinker --execute='Illuminate\Support\Facades\DB::statement("CREATE SCHEMA IF NOT EXISTS " . Illuminate\Support\Facades\DB::connection()->getQueryGrammar()->wrapTable(config("database.connections.pgsql.search_path")));'
+fi
+
 php artisan migrate --force
 
 exec apache2-foreground
