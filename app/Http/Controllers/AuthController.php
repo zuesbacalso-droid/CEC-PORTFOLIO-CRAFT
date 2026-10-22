@@ -48,12 +48,10 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'regex:/^[\pL\pM][\pL\pM\s\'.\-]*$/u'],
             'username' => ['required', 'alpha_dash', 'min:3', 'max:40', 'unique:users,username'],
             'email' => ['required', 'email:rfc', 'max:255', 'regex:/^[^@\s]+@gmail\.com$/i', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
-            'name.regex' => 'Enter your full name using letters, spaces, apostrophes, periods, or hyphens only.',
             'email.regex' => 'Please use a working Gmail address ending in @gmail.com.',
         ]);
 
@@ -69,7 +67,7 @@ class AuthController extends Controller
 
         $code = (string) random_int(100000, 999999);
         $user = User::create([
-            'name' => trim($data['name']),
+            'name' => $data['username'],
             'username' => $data['username'],
             'email' => strtolower($data['email']),
             'password' => Hash::make($data['password']),
